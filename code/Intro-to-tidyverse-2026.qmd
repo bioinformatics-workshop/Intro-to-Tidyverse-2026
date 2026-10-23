@@ -1,0 +1,685 @@
+---
+title: "Introduction to the Tidyverse"
+subtitle: "Data Wrangling with R"
+author: "Brandon Le | IIGB Bioinformatics Core, UC Riverside"
+date: "October 23, 2026"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-float: true
+    theme: cosmo
+    highlight-style: github
+    code-fold: false
+    code-tools: true
+    embed-resources: true
+    df-print: paged
+filters:
+  - webr
+webr:
+  packages:
+    - tidyverse
+    - palmerpenguins
+  resources:
+    - ../code/metadata.csv
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo    = TRUE,
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+## What is the Tidyverse?
+
+The **Tidyverse** is a collection of R packages designed for data science that share a common grammar, data structure, and design philosophy. All packages work with **tidy data**: one variable per column, one observation per row, one value per cell.
+
+```{r tidyverse-logo, echo=FALSE, out.width="60%"}
+# Core packages loaded by library(tidyverse):
+# ggplot2   — data visualization
+# dplyr     — data manipulation
+# tidyr     — reshaping data
+# readr     — importing rectangular data
+# tibble    — modern data frames
+# stringr   — string manipulation
+# forcats   — categorical variables (factors)
+# purrr     — functional programming
+```
+
+| Package  | Purpose                                               |
+|----------|-------------------------------------------------------|
+| ggplot2  | Data visualization                                    |
+| dplyr    | Data manipulation (filter, select, mutate, summarise) |
+| tidyr    | Reshaping data (pivot_longer, pivot_wider)            |
+| readr    | Importing CSV, TSV, and delimited files               |
+| tibble   | Modern data frames                                    |
+| stringr  | String manipulation                                   |
+| forcats  | Factor (categorical variable) handling                |
+| purrr    | Functional programming                                |
+
+```{webr-r}
+# Install if needed (skip on OnDemand — already available)
+# install.packages("tidyverse")
+# install.packages("palmerpenguins")
+
+library(tidyverse)
+library(palmerpenguins)
+```
+
+## Importing Data with readr (and readxl)
+
+### CSV, TSV, and delimited files
+
+readr functions all follow the same pattern: `read_*()`.
+
+Useful `read_csv()` arguments:
+
+```{r readr-args, eval=FALSE}
+read_csv(
+  "myfile.csv",
+  col_types  = cols(SampleID = col_character(),
+                    Reads_M  = col_double()),  # enforce types
+  na         = c("", "NA", "N/A", "ND"),       # strings to treat as NA
+  skip       = 2,                               # skip first 2 rows (e.g. merged headers)
+  n_max      = 100,                             # read only first 100 rows (great for peeking)
+  comment    = "#"                              # ignore lines starting with #
+)
+```
+
+### Reading Excel files with readxl
+
+readxl is not part of the core Tidyverse but is installed alongside it and is the standard way to read `.xlsx` and `.xls` files in R.
+
+```{r readxl-demo, eval=FALSE}
+library(readxl)
+
+# Basic read — defaults to the first sheet
+df <- read_xlsx("my_experiment.xlsx")
+
+# Specify a sheet by name or index
+df <- read_xlsx("my_experiment.xlsx", sheet = "Sample Info")
+df <- read_xlsx("my_experiment.xlsx", sheet = 2)
+
+# Skip merged header rows and set column names manually
+df <- read_xlsx(
+  "my_experiment.xlsx",
+  sheet     = "counts",
+  skip      = 3,
+  col_names = c("gene", "A1", "A2", "B1", "B2")
+)
+
+# List all sheet names before reading
+excel_sheets("my_experiment.xlsx")
+
+# Read a specific cell range (useful for summary tables embedded in sheets)
+df <- read_xlsx("my_experiment.xlsx", range = "B4:F20")
+```
+
+> **readxl vs openxlsx:** readxl is read-only but fast and dependency-free. Use openxlsx or writexl if you also need to write Excel files.
+
+### Exporting data
+
+```{r export, eval=FALSE}
+# Write back to CSV (most portable)
+write_csv(df, "cleaned_data.csv")
+
+# Write compressed (adds .gz automatically)
+write_csv(df, "cleaned_data.csv.gz")
+
+# Write TSV
+write_tsv(df, "cleaned_data.tsv")
+```
+
+## Meeting the Data
+
+### Palmer Penguins
+
+We use the **palmerpenguins** dataset throughout this workshop. It contains measurements for 344 penguins across 3 species from the Palmer Archipelago, Antarctica.
+
+```{webr-r}
+# Print a preview
+penguins
+
+# One-line summary of columns, types, and first values
+glimpse(penguins)
+```
+
+> `glimpse()` is your first move on any new dataset. It tells you: how many rows and columns, the data type of each column (`<fct>` = factor/categorical, `<dbl>` = decimal number, `<int>` = integer), and the first few values.
+
+## Pipes: Reading Code Left to Right
+
+Before learning the manipulation verbs, let's establish the syntax that connects them.
+
+### Two styles, same result
+
+```{webr-r}
+# Nested style — read inside-out, count parentheses
+arrange(
+  select(
+    filter(penguins, species == "Adelie"),
+    species, bill_length_mm
+  ),
+  bill_length_mm
+)
+```
+
+```{webr-r}
+# Piped style — read left to right like a sentence
+penguins |>
+  filter(species == "Adelie") |>
+  select(species, bill_length_mm) |>
+  arrange(bill_length_mm)
+```
+
+`|>` reads as "and then": *Take penguins, and then keep only Adelie, and then select two columns, and then sort by bill length.*
+
+> **Keyboard shortcut:** Ctrl+Shift+M (Windows/Linux) or Cmd+Shift+M (Mac)  
+> In RStudio: Tools → Global Options → Code → check "Use native pipe operator"
+
+### Exercise 3A — Pipes
+
+Using `penguins`, keep only rows where `island` is `"Biscoe"` and `flipper_length_mm` is not NA. Select just `species`, `island`, and `flipper_length_mm`. Use the pipe.
+
+```{webr-r}
+# YOUR TURN: Fill in the blanks
+penguins |>
+  filter(island == ___, !is.na(___)) |>
+  select(___, ___, ___)
+```
+
+<details>
+<summary>Solution</summary>
+
+```r
+penguins |>
+  filter(island == "Biscoe", !is.na(flipper_length_mm)) |>
+  select(species, island, flipper_length_mm)
+```
+
+</details>
+
+## Data Wrangling with dplyr
+
+The six verbs that cover ~80% of data manipulation tasks:
+
+| Verb          | What it does                              |
+|---------------|-------------------------------------------|
+| `filter()`    | Keep rows that match a condition          |
+| `select()`    | Keep only named columns                   |
+| `mutate()`    | Add or modify a column                    |
+| `arrange()`   | Sort rows by column values                |
+| `group_by()`  | Split into invisible groups               |
+| `summarise()` | Collapse groups to one summary row        |
+
+### Building a pipeline — step by step
+
+Type each step, run it, then add the next `|>`.
+
+**Step 1: filter**
+
+```{webr-r}
+penguins |>
+  filter(species == "Chinstrap", !is.na(body_mass_g))
+# Result: 68 rows
+```
+
+**Step 2: mutate**
+
+```{webr-r}
+penguins |>
+  filter(species == "Chinstrap", !is.na(body_mass_g)) |>
+  mutate(mass_kg = body_mass_g / 1000)
+# Same 68 rows, new column mass_kg
+```
+
+**Step 3: select**
+
+```{webr-r}
+penguins |>
+  filter(species == "Chinstrap", !is.na(body_mass_g)) |>
+  mutate(mass_kg = body_mass_g / 1000) |>
+  select(species, sex, mass_kg)
+```
+
+**Step 4: group_by + summarise**
+
+```{webr-r}
+penguins |>
+  filter(species == "Chinstrap", !is.na(body_mass_g)) |>
+  mutate(mass_kg = body_mass_g / 1000) |>
+  select(species, sex, mass_kg) |>
+  group_by(sex) |>
+  summarise(
+    n         = n(),
+    mean_mass = mean(mass_kg),
+    max_mass  = max(mass_kg)
+  )
+# Result: 2 rows (female / male)
+```
+
+**Step 5: arrange**
+
+```{webr-r}
+penguins |>
+  filter(species == "Chinstrap", !is.na(body_mass_g)) |>
+  mutate(mass_kg = body_mass_g / 1000) |>
+  select(species, sex, mass_kg) |>
+  group_by(sex) |>
+  summarise(
+    n         = n(),
+    mean_mass = mean(mass_kg),
+    max_mass  = max(mass_kg)
+  ) |>
+  arrange(desc(mean_mass))
+```
+
+### Exercise 4A — Full pipeline
+
+Starting from `penguins`, remove any row where `flipper_length_mm` or `bill_length_mm` is NA. Add a column `bill_to_flipper = bill_length_mm / flipper_length_mm`. Group by species, compute the mean and SD of `bill_to_flipper`. Arrange largest-to-smallest mean.
+
+```{webr-r}
+# YOUR TURN
+penguins |>
+  filter(!is.na(___), !is.na(___)) |>
+  mutate(___ = ___ / ___) |>
+  group_by(___) |>
+  summarise(
+    mean_ratio = ___,
+    sd_ratio   = ___
+  ) |>
+  arrange(___)
+```
+
+<details>
+<summary>Solution</summary>
+
+```r
+penguins |>
+  filter(!is.na(flipper_length_mm), !is.na(bill_length_mm)) |>
+  mutate(bill_to_flipper = bill_length_mm / flipper_length_mm) |>
+  group_by(species) |>
+  summarise(
+    mean_ratio = mean(bill_to_flipper),
+    sd_ratio   = sd(bill_to_flipper)
+  ) |>
+  arrange(desc(mean_ratio))
+```
+
+Expected output:
+
+```
+# A tibble: 3 × 3
+  species   mean_ratio sd_ratio
+  <fct>          <dbl>    <dbl>
+1 Chinstrap      0.459   0.0261
+2 Adelie         0.407   0.0246
+3 Gentoo         0.360   0.0188
+```
+
+</details>
+
+### Useful commands
+
+**Recoding values with `case_when()`**
+
+```{webr-r}
+penguins |>
+  mutate(
+    size_class = case_when(
+      body_mass_g < 3500                          ~ "small",
+      body_mass_g >= 3500 & body_mass_g < 4500   ~ "medium",
+      body_mass_g >= 4500                         ~ "large",
+      .default = NA_character_
+    )
+  ) |>
+  count(species, size_class)
+```
+
+**Applying a function to many columns with `across()`**
+
+```{webr-r}
+penguins |>
+  mutate(across(where(is.double), \(x) round(x, 1))) |>
+  glimpse()
+```
+
+**Renaming columns**
+
+```{webr-r}
+penguins |>
+  rename(
+    bill_len  = bill_length_mm,
+    bill_dep  = bill_depth_mm,
+    flipper   = flipper_length_mm,
+    body_mass = body_mass_g
+  ) |>
+  names()
+```
+
+## Reshaping Data with tidyr
+
+Most bioinformatics data starts in wide format (conditions as columns). Most tools and plots want long format (one observation per row).
+
+### Wide → Long: `pivot_longer()`
+
+```{webr-r}
+counts_wide <- tribble(
+  ~gene,    ~sample_A, ~sample_B, ~sample_C,
+  "GAPDH",  1200,      980,       1050,
+  "TP53",    340,      290,        410,
+  "BRCA1",   55,       72,          61
+)
+
+counts_wide   # 3 rows, 4 columns
+```
+
+```{webr-r}
+counts_long <- counts_wide |>
+  pivot_longer(
+    cols      = starts_with("sample"),
+    names_to  = "sample",
+    values_to = "count"
+  )
+
+counts_long   # 9 rows, 3 columns
+```
+
+```{webr-r}
+counts_long |>
+  group_by(gene) |>
+  summarise(
+    mean_count = mean(count),
+    sd         = sd(count)
+  )
+```
+
+### Exercise 5A — pivot_longer
+
+The dataframe below has one column per platform. Pivot it to long format so each row is one lab–platform combination with columns `lab`, `platform`, and `n_samples`.
+
+```{webr-r}
+lab_data <- tribble(
+  ~lab,      ~Illumina, ~PacBio, ~Nanopore,
+  "Lab A",   42,        8,       3,
+  "Lab B",   18,        0,       15,
+  "Lab C",   67,        12,      0
+)
+
+# YOUR TURN
+lab_data |>
+  pivot_longer(
+    cols      = ___,
+    names_to  = ___,
+    values_to = ___
+  )
+```
+
+<details>
+<summary>Solution</summary>
+
+```r
+lab_data |>
+  pivot_longer(
+    cols      = c(Illumina, PacBio, Nanopore),
+    names_to  = "platform",
+    values_to = "n_samples"
+  )
+# Expected: 9 rows × 3 columns
+```
+
+</details>
+
+### Long → Wide: `pivot_wider()`
+
+```{webr-r}
+counts_long |>
+  pivot_wider(
+    names_from  = sample,
+    values_from = count
+  )
+```
+
+## Pair Coding Exercise
+
+Work with a partner — one types, one navigates. Switch after 6 minutes.
+
+Starting from the metadata CSV, produce a summary tibble with one row per sequencing platform showing:
+
+- The number of samples
+- The mean and maximum sequencing depth (in millions of reads)
+- The total estimated cost (depth × $100 per million reads)
+
+Export the result as `platform_summary.csv`.
+
+```{webr-r}
+
+# Download the metadata CSV from GitHub
+file_url <- "https://raw.githubusercontent.com/bioinformatics-workshop/Intro-to-Tidyverse-2025/refs/heads/main/data/metadata.csv"
+download.file(file_url, "metadata.csv")
+
+# Read the CSV
+meta <- read_csv("metadata.csv")
+
+# Rename columns for easier typing
+meta <- meta |>
+  rename(depth_M = `Sequencing Depth (M Reads)`, platform = `Sequencing Platform`)
+
+glimpse(meta)  # check column names before writing the pipeline
+
+# YOUR TURN
+meta |>
+  ___
+```
+
+<details>
+<summary>Solution</summary>
+
+```r
+meta |>
+  mutate(cost = depth_M * 100) |>
+  group_by(platform) |>
+  summarise(
+    n_samples  = n(),
+    mean_depth = mean(depth_M, na.rm = TRUE),
+    max_depth  = max(depth_M,  na.rm = TRUE),
+    total_cost = sum(cost,     na.rm = TRUE)
+  ) |>
+  arrange(desc(n_samples)) |>
+  write_csv("platform_summary.csv")
+```
+
+</details>
+
+## Data Wrangling Challenges
+
+Work solo. Start at Mild — move to Medium or Hot when ready.
+
+### The dataset
+
+```{webr-r}
+sample_sheet <- tribble(
+  ~SampleID, ~Treatment,  ~Replicate, ~RIN, ~Reads_M, ~Technician,  ~Platform,
+  "S01",     "control",   1,          8.2,  42.1,     "jsmith",     "Illumina",
+  "S02",     "control",   2,          7.9,  38.4,     "J. Smith",   "Illumina",
+  "S03",     "treated",   1,          8.5,  51.2,     "jsmith",     "Illumina",
+  "S04",     "treated",   2,          NA,   29.8,     "mlee",       "PacBio",
+  "S05",     "treated",   3,          7.1,  35.0,     "M. Lee",     "PacBio",
+  "S06",     "control",   3,          6.8,  44.7,     "mlee",       "Illumina"
+)
+
+sample_sheet
+```
+
+### MILD
+
+1. Standardise technician names: all `jsmith`/`J. Smith` → `"J. Smith"`, all `mlee`/`M. Lee` → `"M. Lee"`.
+2. Remove samples where RIN is NA.
+3. Add a column `passes_qc` that is `TRUE` when `Reads_M >= 35`.
+
+```{webr-r}
+# YOUR TURN
+clean <- sample_sheet |>
+  mutate(
+    Technician = case_when(
+      Technician %in% c(___, ___) ~ "J. Smith",
+      Technician %in% c(___, ___) ~ "M. Lee",
+      .default = Technician
+    )
+  ) |>
+  filter(___) |>
+  mutate(passes_qc = ___)
+
+clean
+```
+
+<details>
+<summary>Core solution</summary>
+
+```r
+clean <- sample_sheet |>
+  mutate(
+    Technician = case_when(
+      Technician %in% c("jsmith", "J. Smith") ~ "J. Smith",
+      Technician %in% c("mlee",   "M. Lee")   ~ "M. Lee",
+      .default = Technician
+    )
+  ) |>
+  filter(!is.na(RIN)) |>
+  mutate(passes_qc = Reads_M >= 35)
+
+clean
+# 5 rows (S04 removed), passes_qc column added
+```
+
+</details>
+
+### MEDIUM
+
+1. Add a `cost` column: `Reads_M * 100`.
+2. Group by `Technician` and `Platform`. Compute: number of samples, total reads, total cost.
+3. Export as `tech_summary.csv`.
+
+```{webr-r}
+# YOUR TURN — start from clean
+clean |>
+  mutate(cost = ___) |>
+  group_by(___, ___) |>
+  summarise(
+    n_samples   = n(),
+    total_reads = ___,
+    total_cost  = ___,
+    .groups = "drop"
+  ) |>
+  write_csv("tech_summary.csv")
+```
+
+<details>
+<summary>Stretch solution</summary>
+
+```r
+clean |>
+  mutate(cost = Reads_M * 100) |>
+  group_by(Technician, Platform) |>
+  summarise(
+    n_samples   = n(),
+    total_reads = sum(Reads_M),
+    total_cost  = sum(cost),
+    .groups = "drop"
+  ) |>
+  write_csv("tech_summary.csv")
+```
+
+</details>
+
+### HOT (SPICY)
+
+1. Pivot the Medium summary wide so each Platform is its own column of `total_cost`. Fill missing combinations with `0`.
+2. Add a column `over_budget = TRUE` when total Illumina cost exceeds $4,000.
+
+```{webr-r}
+# YOUR TURN — build from the Stretch summary
+clean |>
+  mutate(cost = Reads_M * 100) |>
+  group_by(Technician, Platform) |>
+  summarise(total_cost = sum(cost), .groups = "drop") |>
+  pivot_wider(
+    names_from  = ___,
+    values_from = ___,
+    values_fill = ___
+  ) |>
+  mutate(over_budget = ___)
+```
+
+<details>
+<summary>Challenge solution</summary>
+
+```r
+clean |>
+  mutate(cost = Reads_M * 100) |>
+  group_by(Technician, Platform) |>
+  summarise(total_cost = sum(cost), .groups = "drop") |>
+  pivot_wider(
+    names_from  = Platform,
+    values_from = total_cost,
+    values_fill = 0
+  ) |>
+  mutate(over_budget = Illumina > 4000)
+```
+
+Expected:
+
+```
+# A tibble: 2 × 4
+  Technician Illumina PacBio over_budget
+  <chr>         <dbl>  <dbl> <lgl>
+1 J. Smith      13170      0 TRUE
+2 M. Lee         4470   3500 TRUE
+```
+
+</details>
+
+### Additional Challenges
+
+Using the messy data (metadata.csv) from the pair coding exercise, tidy up the dataset and address the following questions:
+
+- [ ] Convert the column names to snake_case (e.g. Technician Name → technician_name, RNA Concentration ng/µL → rna_concentration_ng_ul)
+- [ ] Count the NAs in each column and report the number of missing values per column
+- [ ] Standardize technician_name so alice/Alice and BOB/Bob become Alice and Bob.
+- [ ] Convert collection_temp ("25 C") to a numeric column collection_temp_c
+- [ ] Split patient_treatment_batch (e.g. P107_Placebo_B2) into patient, arm and batch.
+- [ ] Recode treatment_group so Low-Dose and High_Dose use the same separator style, and replace NA with "Unknown".
+- [ ] Produce a table of the mean RNA concentration by technician_name and sequencer_platform.
+- [ ] Flag invalid values: sequencing_depth_m has a negative value (RNA_S95). Flag impossible values rather than silently deleting them.
+- [ ] Pivot the data to long format and generate ggplot2 visualizations of RNA concentration by technician_name and sequencer_platform.
+
+## Tidy Data Checklist
+
+**Is my data tidy?**
+
+- [ ] Each variable is its own column
+- [ ] Each observation is its own row
+- [ ] Each value is in exactly one cell
+- [ ] Column names are `snake_case`, not `Sample Name (ng/µL)`
+- [ ] Dates are ISO 8601 (YYYY-MM-DD), not 11/20/25
+- [ ] No values encoded as cell colour or merged headers
+- [ ] Numeric columns contain only numbers — not `>35` or `ND`
+
+## Additional Resources
+
+| Resource | Link |
+|----------|------|
+| R for Data Science (2nd ed.) | <https://r4ds.hadley.nz> |
+| Tidyverse cheatsheets (dplyr, tidyr, readr) | <https://posit.co/resources/cheatsheets/> |
+| Tidyverse Skills for Data Science | <https://jhudatascience.org/tidyversecourse/> |
+| TidyTuesday (weekly practice datasets) | <https://tidytues.day> |
+| Workshop repo | <https://github.com/bioinformatics-workshop/Intro-to-Tidyverse-2025> |
+
+---
+
+## Session Info
+
+```{r session-info}
+sessionInfo()
+```

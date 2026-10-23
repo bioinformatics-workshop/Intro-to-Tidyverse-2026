@@ -1,0 +1,875 @@
+---
+title: "Introduction to the Tidyverse"
+subtitle: "UCR IIGB Bioinformatics Workshop"
+author: "Brandon Le"
+date: today
+format:
+  revealjs:
+    width: 900
+    height: 506
+    margin: 0.02
+    minScale: 0.2
+    maxScale: 2.0
+    center: false
+    hash: true
+    controls: true
+    embed-resources: true
+    footer: "https://github.com/bioinformatics-workshop/Intro-to-Tidyverse-2026"
+    progress: true
+    slide-number: "c/t"
+    transition: slide
+    highlight-style: atom-one-dark
+    code-line-numbers: false
+    css: tidyverse-theme.css
+    include-in-header:
+      text: |
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,300&display=swap" rel="stylesheet">
+        <script>
+          window.addEventListener('load', function () {
+            var goToSlide2 = function () {
+              if (typeof Reveal !== 'undefined' && Reveal.isReady()) {
+                Reveal.slide(1);
+              } else if (typeof Reveal !== 'undefined') {
+                Reveal.on('ready', function () { Reveal.slide(1); });
+              } else {
+                setTimeout(goToSlide2, 100);
+              }
+            };
+            goToSlide2();
+          });
+        </script>
+execute:
+  echo: true
+  eval: false
+---
+
+##  {background-color="#1A2744"}
+
+```{=html}
+<div class="slide-inner" style="justify-content:center;gap:40px">
+  <div>
+    <p style="font-size:1.02em;color:var(--lblue);font-weight:600;letter-spacing:3px;text-transform:uppercase;margin:0 0 16px">UCR IIGB Bioinformatics Workshop</p>
+    <h1 style="font-size:4.12em;color:var(--light);margin:0 0 16px">Introduction to the Tidyverse</h1>
+    <p style="font-size:1.55em;color:var(--muted);margin:0">Data wrangling for bioinformatics</p>
+  </div>
+  <div style="display:flex;gap:20px;flex-wrap:wrap">
+<div class="card card-dark" style="padding:18px 28px;flex:1;min-width:180px">
+      <p class="smaller muted" style="margin:0 0 4px">Dataset</p>
+      <p style="font-size:1.45em;color:var(--light);margin:0;font-weight:600">palmerpenguins</p>
+    </div>
+    <div class="card card-dark" style="padding:18px 28px;flex:1;min-width:180px">
+      <p class="smaller muted" style="margin:0 0 4px">Instructor</p>
+      <p style="font-size:1.45em;color:var(--light);margin:0;font-weight:600">Brandon Le, Ph.D. | Bioinformatics Coordinator</p>
+    </div>
+  </div>
+</div>
+```
+
+------------------------------------------------------------------------
+
+##  {background-color="#1A2744"}
+
+```{=html}
+<h2 style="color:var(--light);font-size:2.67em;font-weight:700;letter-spacing:-0.01em;line-height:1.15;margin:0 0 0.4em">Motivation: Real Data is Messy</h2>
+```
+
+```{r}
+#| label: metadata-table
+#| echo: false
+#| eval: true
+library(readr)
+library(DT)
+
+metadata <- read_csv("data/metadata.csv")
+
+meta_na <- metadata
+meta_na[] <- lapply(meta_na, function(x) {
+  x <- as.character(x)
+  x[is.na(x) | trimws(x) == ""] <- "NA"
+  x
+})
+tech_col  <- "Technician Name"
+seq_depth <- "Sequencing Depth (M)"
+
+datatable(
+  meta_na,
+  options = list(
+    pageLength = 8,
+    lengthMenu = c(8, 16, 32, 64),
+    scrollX    = TRUE,
+    scrollY    = "250px",
+    dom        = "frtip"
+  ),
+  class = "compact stripe"
+) |>
+  formatStyle(columns = names(meta_na), color = styleEqual("NA", "red")) |>
+  formatStyle(columns = tech_col, color = styleEqual(c("alice", "BOB", "NA"), c("red", "red", "red"))) |> 
+  formatStyle(columns = seq_depth, color = styleInterval(0, c('red', '')))
+```
+
+------------------------------------------------------------------------
+
+##  {background-color="#1A2744"}
+
+```{=html}
+<div class="slide-inner compact">
+  <h2 style="color:var(--light);font-size:2em;margin:0">Today's Agenda</h2>
+  <div class="flex-col" style="gap:4px">
+    <div class="agenda-row"><div class="agenda-num">1</div><div><p style="margin:0;font-size:1.1em;color:var(--light);font-weight:600">What is Tidy Data?</p></div></div>
+    <div class="agenda-row"><div class="agenda-num">2</div><div><p style="margin:0;font-size:1.1em;color:var(--light);font-weight:600">Importing Data</p></div></div>
+    <div class="agenda-row"><div class="agenda-num">3</div><div><p style="margin:0;font-size:1.1em;color:var(--light);font-weight:600">Pipes + dplyr verbs</p></div></div>
+    <div class="agenda-row"><div class="agenda-num">4</div><div><p style="margin:0;font-size:1.1em;color:var(--light);font-weight:600">From Messy → tidy with tidyr</p></div></div>
+    <div class="agenda-row" style="border:1px solid #4A5568;background:transparent"><div class="agenda-num" style="background:#4A5568">—</div><div><p style="margin:0;font-size:1.1em;color:var(--muted);font-weight:600">Break</p></div></div>
+    <div class="agenda-row"><div class="agenda-num">5</div><div><p style="margin:0;font-size:1.1em;color:var(--light);font-weight:600">Coding exercises</p></div></div>
+  </div>
+  <div class="card card-dark" style="padding:10px 5px">
+    <p class="smaller" style="color:var(--lblue);font-weight:600;margin:0 0 4px">You will leave able to</p>
+    <p class="smaller muted" style="margin:0;line-height:1.5">Import CSV / TSV / Excel files  ·  build readable pipelines with |&gt;  &nbsp ·  filter, select, mutate, group &amp; summarise · reshape wide ↔ long</p>
+  </div>
+</div>
+```
+
+------------------------------------------------------------------------
+
+##  {background-color="#F7F9FC"}
+
+```{=html}
+<div class="slide-inner light-bg">
+  <div>
+    <p class="section-label" style="margin:0 0 8px">The Philosophy</p>
+    <h2 style="font-size:2.67em;margin:0">Three Rules of Tidy Data</h2>
+  </div>
+  <div class="flex-col" style="gap:16px;flex:1">
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.45em;flex-shrink:0">1</div>
+      <div><p style="font-size:1.45em;font-weight:600;color:var(--navy);margin:0 0 4px">Each variable has its own column</p><p class="smaller" style="color:#4A5568;margin:0">species, bill_length_mm, body_mass_g — each lives in exactly one column</p></div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.45em;flex-shrink:0">2</div>
+      <div><p style="font-size:1.45em;font-weight:600;color:var(--navy);margin:0 0 4px">Each observation has its own row</p><p class="smaller" style="color:#4A5568;margin:0">One penguin = one row. One RNA-seq sample = one row.</p></div>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start">
+      <div style="width:44px;height:44px;border-radius:50%;background:var(--blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.45em;flex-shrink:0">3</div>
+      <div><p style="font-size:1.45em;font-weight:600;color:var(--navy);margin:0 0 4px">Each observational unit forms its own table</p><p class="smaller" style="color:#4A5568;margin:0">Sample metadata and count matrices are separate tables — join them when needed.</p></div>
+    </div>
+  </div>
+  <div class="card card-blue" style="border-left:4px solid var(--blue);padding:20px 28px">
+    <p class="smaller" style="color:#2B6CB0;font-style:italic;margin:0">"Tidy datasets are all alike, but every messy dataset is messy in its own way." — Hadley Wickham</p>
+  </div>
+</div>
+```
+
+------------------------------------------------------------------------
+
+##  {background-color="#1A2744"}
+
+```{=html}
+<div class="slide-inner compact">
+  <div>
+    <p class="section-label" style="margin:0 0 6px">Section 1</p>
+    <h2 style="color:var(--light);font-size:2em;margin:0">The Tidyverse — Eight Packages, One Grammar</h2>
+  </div>
+  <div class="grid-3" style="gap:8px;flex:1">
+    <div class="verb-card" style="border-top:4px solid #3182CE"><p class="mono" style="color:var(--lblue);font-size:1.15em;margin:0 0 4px">ggplot2</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 2px">Visualize</p><p class="smaller muted" style="margin:0">Grammar of graphics</p></div>
+    <div class="verb-card" style="border-top:4px solid #48BB78"><p class="mono" style="color:#68D391;font-size:1.15em;margin:0 0 4px">dplyr</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 2px">Transform</p><p class="smaller muted" style="margin:0">filter, select, mutate…</p></div>
+    <div class="verb-card" style="border-top:4px solid #ECC94B"><p class="mono" style="color:#F6E05E;font-size:1.15em;margin:0 0 4px">tidyr</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 2px">Reshape</p><p class="smaller muted" style="margin:0">pivot_longer / wider</p></div>
+    <div class="verb-card" style="border-top:4px solid #ED8936"><p class="mono" style="color:#F6AD55;font-size:1.15em;margin:0 0 4px">readr</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 2px">Import</p><p class="smaller muted" style="margin:0">CSV, TSV, delimited</p></div>
+    <div class="verb-card" style="border-top:4px solid #9F7AEA"><p class="mono" style="color:#B794F4;font-size:1.15em;margin:0 0 4px">purrr</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 2px">Iterate</p><p class="smaller muted" style="margin:0">map(), walk()</p></div>
+    <div class="verb-card" style="border-top:4px solid #FC8181"><p class="mono" style="color:var(--red);font-size:1.15em;margin:0 0 4px">stringr</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 2px">Strings</p><p class="smaller muted" style="margin:0">str_detect, str_replace</p></div>
+    <div class="verb-card" style="border-top:4px solid #63B3ED"><p class="mono" style="color:var(--lblue);font-size:1.15em;margin:0 0 4px">forcats</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 2px">Factors</p><p class="smaller muted" style="margin:0">fct_reorder, fct_lump</p></div>
+    <div class="verb-card" style="border-top:4px solid #81E6D9"><p class="mono" style="color:#81E6D9;font-size:1.15em;margin:0 0 4px">lubridate</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 2px">Dates &amp; Times</p><p class="smaller muted" style="margin:0">ymd(), floor_date()</p></div>
+  </div>
+  <div class="card card-dark" style="padding:8px 16px">
+    <p class="smaller muted" style="margin:0"><span class="mono" style="color:var(--lblue)">install.packages("tidyverse")</span> — installs all eight</p>
+  </div>
+</div>
+```
+
+------------------------------------------------------------------------
+
+##  {background-color="#F7F9FC"}
+
+```{=html}
+<div style="display:flex;align-items:center;gap:24px">
+  <div style="flex:1">
+      <p class="section-label" style="margin:0 0 8px">Section 2 — Data Import</p>
+      <h2 style="font-size:2em;margin:0">Meet the Penguins</h2>
+  </div>
+</div>
+```
+
+<br>
+
+::::: columns
+::: {.column width="60%"}
+```{r}
+#| eval: false
+#| code-line-numbers: false
+library(tidyverse)
+library(palmerpenguins)
+ 
+glimpse(penguins)
+
+#> Rows: 344  Columns: 8
+#> $ species           <fct> Adelie, Adelie, Adelie, ...
+#> $ island            <fct> Torgersen, Torgersen, ...
+#> $ bill_length_mm    <dbl> 39.1, 39.5, 40.3, NA, ...
+#> $ bill_depth_mm     <dbl> 18.7, 17.4, 18.0, NA, ...
+#> $ flipper_length_mm <int> 181, 186, 195, NA, ...
+#> $ body_mass_g       <int> 3750, 3800, 3250, NA, ...
+#> $ sex               <fct> male, female, female, NA, ...
+#> $ year              <int> 2007, 2007, 2007, ...
+```
+
+```{=html}
+<div class="card card-orange" style="border:1px solid #F6AD55;padding:8px 16px;margin-top:8px">
+  <p class="smaller" style="color:#744210;margin:0">Notice the <strong>types</strong>: &lt;fct&gt; = factor (categorical), &lt;dbl&gt; = numeric, &lt;int&gt; = integer. readr infers these — check them before analysis.</p>
+</div>
+```
+:::
+
+::: {.column width="40%"}
+![Palmer penguins artwork](https://allisonhorst.github.io/palmerpenguins/reference/figures/lter_penguins.png){style="max-width:100%;border-radius:6px;object-fit:contain"}
+
+[Artwork by @allison_horst]{style="font-size:0.75em;color:var(--muted)"}
+:::
+:::::
+
+------------------------------------------------------------------------
+
+##  {background-color="#1A2744"}
+
+```{=html}
+  <div>
+    <p class="section-label" style="margin:0 0 8px">Section 2 — readr</p>
+    <h2 style="color:var(--light);font-size:2.67em;margin:0">Reading Files with readr</h2>
+  </div>
+```
+
+<br>
+
+::::: columns
+::: {.column width="60%"}
+```{=html}
+<div class="flex-row" style="gap:24px">
+    <div class="flex-col" style="gap:14px">
+      <div style="display:flex;gap:12px">
+        <span style="background:var(--blue);color:#fff;border-radius:8px;padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:1.14em;white-space:nowrap">read_csv()</span>
+        <span style="background:var(--dark2);color:var(--muted);border-radius:8px;padding:6px 16px;font-size:1.14em">comma-separated</span>
+      </div>
+      <div style="display:flex;gap:12px">
+        <span style="background:var(--blue);color:#fff;border-radius:8px;padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:1.14em;white-space:nowrap">read_tsv()</span>
+        <span style="background:var(--dark2);color:var(--muted);border-radius:8px;padding:6px 16px;font-size:1.14em">tab-separated</span>
+      </div>
+      <div style="display:flex;gap:12px">
+        <span style="background:var(--blue);color:#fff;border-radius:8px;padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:1.14em;white-space:nowrap">read_delim()</span>
+        <span style="background:var(--dark2);color:var(--muted);border-radius:8px;padding:6px 16px;font-size:1.14em">any delimiter</span>
+      </div>
+      <div class="card card-dark" style="padding:14px 20px;margin-top:8px">
+        <p class="smaller muted" style="margin:0">Write back: <span class="mono" style="color:var(--lblue)">write_csv(df, "out.csv")</span></p>
+      </div>
+    </div>
+</div>
+```
+:::
+
+::: {.column width="40%"}
+```{r}
+#| eval: false
+
+df <- read_csv(
+  "samples.csv",
+  col_types = cols(
+    SampleID = col_character(),
+    RIN = col_double(),
+    Treatment = col_factor()
+  ),
+  na = c("", "NA", "N/A"),
+  skip = 0,
+  comment = "#"
+)
+
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Reading Excel Files with readxl {background-color="#F7F9FC"}
+
+::: section-label
+Section 2 — Excel import
+:::
+
+```{r}
+#| echo: true
+#| eval: false
+library(readxl)  # install separately — not part of core tidyverse
+
+# List all sheets first
+excel_sheets("my_experiment.xlsx")
+
+# Read a specific sheet
+df <- read_xlsx("my_experiment.xlsx", sheet = "Sample Info")
+
+# Skip merged header rows, supply your own column names
+df <- read_xlsx("my_experiment.xlsx", sheet = "counts",
+                 skip = 3,
+                 col_names = c("gene", "A1", "A2", "B1", "B2"))
+
+# Read a specific cell range
+df <- read_xlsx("my_experiment.xlsx", range = "B4:F20")
+```
+
+```{=html}
+<div class="card card-orange" style="border-left:4px solid var(--orange);padding:10px 16px;margin-top:8px">
+  <p style="color:#744210;margin:0;font-size:0.95em"><strong>readxl is read-only.</strong> To write .xlsx use <code>writexl::write_xlsx()</code> or <code>openxlsx::write.xlsx()</code>.</p>
+</div>
+```
+
+------------------------------------------------------------------------
+
+##  {background-color="#1A2744"}
+
+```{=html}
+<div class="slide-inner" style="justify-content:center">
+  <div>
+    <p class="section-label" style="margin:0 0 8px">Section 3 — The Pipe Operator</p>
+  </div>
+  <div class="flex-row" style="align-items:center;gap:48px">
+    <div class="flex-col" style="gap:24px;flex:1">
+      <h1 style="font-size:5.77em;color:var(--lblue);font-family:'IBM Plex Mono',monospace;margin:0;line-height:1">|&gt;</h1>
+      <p style="font-size:1.75em;font-weight:300;color:#BEE3F8;margin:0">reads as <strong style="color:var(--light)">"and then"</strong></p>
+      <div class="card card-dark" style="padding:18px 24px">
+        <p class="smaller muted" style="margin:0;line-height:1.6">Take <span class="mono" style="color:#E06C75">penguins</span>, <em>and then</em> <span class="mono" style="color:#61AFEF">filter</span>, <em>and then</em> <span class="mono" style="color:#61AFEF">select</span>, <em>and then</em> <span class="mono" style="color:#61AFEF">arrange</span>.</p>
+      </div>
+    </div>
+    <div class="flex-col" style="flex:1.2;gap:16px">
+      <pre style="border-radius:12px;background:var(--code-bg)"><code class="language-r" style="color:#A0AEC0">penguins |&gt;
+  filter(species == "Adelie") |&gt;
+  select(species, island) |&gt;
+  arrange(island)</code></pre>
+      <div class="card card-dark" style="padding:16px 24px;display:flex;justify-content:space-between;align-items:center">
+        <p class="smaller muted" style="margin:0">Keyboard shortcut</p>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="kbd">Ctrl</span>
+          <span class="smaller muted">+</span>
+          <span class="kbd">Shift</span>
+          <span class="smaller muted">+</span>
+          <span class="kbd">M</span>
+        </div>
+      </div>
+    </div>
+  </div>
+```
+
+------------------------------------------------------------------------
+
+## Same Code, Two Styles {background-color="#F7F9FC"}
+
+:::::: columns
+::: {.column width="47%"}
+**Nested — read inside-out**
+
+```{r}
+#| echo: true
+#| eval: false
+arrange(
+  select(
+    filter(
+      penguins,
+      species == "Adelie"
+    ),
+    species, bill_length_mm
+  ),
+  bill_length_mm
+)
+```
+
+```{=html}
+<div class="card card-red" style="border-left:4px solid var(--red);padding:10px 16px;margin-top:8px">
+  <p style="color:#9B2335;margin:0;font-size:0.95em">Count the parentheses. Find where to add the next step.</p>
+</div>
+```
+:::
+
+::: {.column width="6%"}
+<p style="font-size:2.5em;color:#CBD5E0;margin:0.2em 0;text-align:center">
+
+→
+
+</p>
+:::
+
+::: {.column width="47%"}
+**Piped — read left to right**
+
+```{r}
+#| echo: true
+#| eval: false
+penguins |>
+  filter(
+    species == "Adelie"
+  ) |>
+  select(
+    species, bill_length_mm
+  ) |>
+  arrange(bill_length_mm)
+```
+
+```{=html}
+<div class="card card-green" style="border-left:4px solid var(--green);padding:10px 16px;margin-top:8px">
+  <p style="color:#276749;margin:0;font-size:0.95em">Add a step? Append another <code>|&gt;</code> line. Always reads like a recipe.</p>
+</div>
+```
+:::
+::::::
+
+------------------------------------------------------------------------
+
+##  {background-color="#1A2744"}
+
+```{=html}
+<div class="slide-inner compact">
+  <div>
+    <p class="section-label" style="margin:0 0 6px">Section 3 — dplyr</p>
+    <h2 style="color:var(--light);font-size:2em;margin:0">Six Verbs for 80% of Your Work</h2>
+  </div>
+  <div class="grid-3" style="flex:1;gap:10px">
+    <div class="verb-card" style="border-top:4px solid var(--blue)"><p class="mono" style="color:var(--lblue);font-size:1.15em;margin:0 0 4px">filter()</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 4px">Keep rows matching a condition</p><p class="smaller muted mono" style="margin:0;line-height:1.5">species == "Adelie"<br>!is.na(body_mass_g)</p></div>
+    <div class="verb-card" style="border-top:4px solid var(--purple)"><p class="mono" style="color:#B794F4;font-size:1.15em;margin:0 0 4px">select()</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 4px">Keep only named columns</p><p class="smaller muted mono" style="margin:0;line-height:1.5">species, island<br>starts_with("bill")</p></div>
+    <div class="verb-card" style="border-top:4px solid var(--green)"><p class="mono" style="color:#68D391;font-size:1.15em;margin:0 0 4px">mutate()</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 4px">Add or modify a column</p><p class="smaller muted mono" style="margin:0;line-height:1.5">mass_kg = body_mass_g / 1000<br>case_when(...)</p></div>
+    <div class="verb-card" style="border-top:4px solid var(--yellow)"><p class="mono" style="color:#F6E05E;font-size:1.15em;margin:0 0 4px">arrange()</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 4px">Sort rows by column values</p><p class="smaller muted mono" style="margin:0;line-height:1.5">bill_length_mm<br>desc(body_mass_g)</p></div>
+    <div class="verb-card" style="border-top:4px solid var(--orange)"><p class="mono" style="color:#F6AD55;font-size:1.15em;margin:0 0 4px">group_by()</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 4px">Split into invisible groups</p><p class="smaller muted mono" style="margin:0;line-height:1.5">species<br>species, island</p></div>
+    <div class="verb-card" style="border-top:4px solid var(--red)"><p class="mono" style="color:#FC8181;font-size:1.15em;margin:0 0 4px">summarise()</p><p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0 0 4px">Collapse each group to one row</p><p class="smaller muted mono" style="margin:0;line-height:1.5">n(), mean(), sum()<br>min(), max(), sd()</p></div>
+  </div>
+</div>
+```
+
+------------------------------------------------------------------------
+
+## filter() and select() {background-color="#F7F9FC"}
+
+::::: columns
+::: {.column width="50%"}
+**`filter()` — keep rows**
+
+```{r}
+#| echo: true
+#| eval: false
+penguins |>
+  filter(
+    species == "Adelie",
+    !is.na(body_mass_g),
+    body_mass_g >= 3500
+  )
+```
+
+```{=html}
+<div class="card card-blue" style="border-left:4px solid var(--blue);padding:10px 16px;margin-top:8px">
+  <p style="color:#2B6CB0;margin:0;font-size:0.95em"><strong>Logical operators:</strong> <code>==</code> <code>!=</code> <code>&gt;=</code> <code>&gt;</code> <code>&amp;</code> <code>|</code> <code>!is.na()</code> <code>%in%</code></p>
+</div>
+```
+:::
+
+::: {.column width="50%"}
+**`select()` — keep columns**
+
+```{r}
+#| echo: true
+#| eval: false
+penguins |>
+  select(
+    species, island,
+    starts_with("bill")
+  )
+
+penguins |>
+  select(-year, -sex)
+```
+
+```{=html}
+<div class="card card-purple" style="border-left:4px solid var(--purple);padding:10px 16px;margin-top:8px">
+  <p style="color:#553C9A;margin:0;font-size:0.95em"><strong>Select helpers:</strong> <code>starts_with()</code> <code>ends_with()</code> <code>contains()</code> <code>where(is.numeric)</code></p>
+</div>
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## mutate(), group_by(), summarise() {background-color="#F7F9FC"}
+
+::::: columns
+::: {.column width="50%"}
+**`mutate()` — add / change columns**
+
+```{r}
+#| echo: true
+#| eval: false
+penguins |>
+  mutate(
+    mass_kg = body_mass_g / 1000,
+    size_class = case_when(
+      body_mass_g >= 4500 ~ "large",
+      body_mass_g >= 3500 ~ "medium",
+      .default = "small"
+    )
+  )
+```
+:::
+
+::: {.column width="50%"}
+**`group_by()` + `summarise()`**
+
+```{r}
+#| echo: true
+#| eval: false
+penguins |>
+  filter(!is.na(body_mass_g)) |>
+  group_by(species, sex) |>
+  summarise(
+    n         = n(),
+    mean_mass = mean(body_mass_g),
+    sd_mass   = sd(body_mass_g),
+    .groups   = "drop"
+  )
+```
+
+```{=html}
+<div class="card card-orange" style="border-left:4px solid var(--orange);padding:10px 16px;margin-top:8px">
+  <p style="color:#744210;margin:0;font-size:0.95em">Always add <strong><code>.groups = "drop"</code></strong> to avoid surprises in later steps.</p>
+</div>
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Building a Full Pipeline {background-color="#F7F9FC"}
+
+Filter Chinstrap penguins → compute bill ratio → rank by size
+
+```{r}
+#| echo: true
+#| eval: false
+penguins |>               # start with the data
+  filter(
+    species == "Chinstrap",  # 1. keep one species
+    !is.na(bill_length_mm),  #    drop NAs
+    !is.na(body_mass_g)
+  ) |>
+  select(island,           # 2. keep useful cols
+    bill_length_mm,
+    bill_depth_mm,
+    body_mass_g) |>
+  mutate(                  # 3. create new column
+    bill_ratio = bill_length_mm / bill_depth_mm
+  ) |>
+  arrange(desc(body_mass_g))  # 4. sort heaviest first
+```
+
+::::: columns
+::: {.column width="50%"}
+```{=html}
+<div class="card card-green" style="border-left:4px solid var(--green);padding:10px 16px">
+  <p style="color:#276749;margin:0;font-size:0.95em"><strong>Each step is one verb</strong> — add a step → new <code>|&gt;</code> line; remove a step → delete that line.</p>
+</div>
+```
+:::
+
+::: {.column width="50%"}
+```{=html}
+<div class="card card-blue" style="border-left:4px solid var(--blue);padding:10px 16px">
+  <p style="color:#2B6CB0;margin:0;font-size:0.95em"><strong>No intermediate objects</strong> — nothing stored until you assign. Memory stays clean.</p>
+</div>
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+##  {background-color="#1A2744"}
+
+```{=html}
+<div class="slide-inner compact">
+  <div>
+    <p class="section-label" style="margin:0 0 6px">Section 4 — tidyr</p>
+    <h2 style="color:var(--light);font-size:2em;margin:0">Messy → Tidy</h2>
+  </div>
+  <div class="flex-row" style="align-items:center;gap:16px">
+    <div class="card card-dark" style="flex:1;padding:14px;display:flex;flex-direction:column;gap:10px">
+      <p style="font-size:1.1em;font-weight:600;color:var(--red);margin:0">Wide (messy for analysis)</p>
+      <table class="tidy-table" style="font-size:0.85em">
+  <tr><th>gene</th><th>ctrl_1</th><th>ctrl_2</th><th>trt_1</th><th>trt_2</th></tr>
+  <tr><td>GAPDH</td><td style="text-align:right;color:var(--muted)">142</td><td style="text-align:right;color:var(--muted)">138</td><td style="text-align:right;color:var(--muted)">97</td><td style="text-align:right;color:var(--muted)">103</td></tr>
+  <tr><td>TP53</td><td style="text-align:right;color:var(--muted)">45</td><td style="text-align:right;color:var(--muted)">51</td><td style="text-align:right;color:var(--muted)">89</td><td style="text-align:right;color:var(--muted)">92</td></tr>
+</table>
+      <p class="smaller muted" style="margin:0">Sample names are column headers — hard to filter, group, or plot</p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:60px;flex-shrink:0">
+      <p style="font-size:1.8em;margin:0;color:var(--muted)">→</p>
+      <p class="mono smaller" style="color:var(--lblue);text-align:center;margin:0">pivot_<br>longer()</p>
+    </div>
+    <div class="card" style="flex:1;padding:14px;background:#1B3A52;border:2px solid var(--green);display:flex;flex-direction:column;gap:10px;border-radius:14px">
+      <p style="font-size:1.1em;font-weight:600;color:#68D391;margin:0">Long (tidy — one obs per row)</p>
+      <table class="tidy-table" style="font-size:0.85em">
+  <tr><th>gene</th><th>sample</th><th>count</th></tr>
+  <tr><td>GAPDH</td><td style="color:var(--muted)">ctrl_1</td><td style="text-align:right;color:var(--muted)">142</td></tr>
+  <tr><td>GAPDH</td><td style="color:var(--muted)">ctrl_2</td><td style="text-align:right;color:var(--muted)">138</td></tr>
+  <tr><td>GAPDH</td><td style="color:var(--muted)">trt_1</td><td style="text-align:right;color:var(--muted)">97</td></tr>
+  <tr><td>GAPDH</td><td style="color:var(--muted)">trt_2</td><td style="text-align:right;color:var(--muted)">103</td></tr>
+  <tr><td>TP53</td><td style="color:var(--muted)">ctrl_1</td><td style="text-align:right;color:var(--muted)">45</td></tr>
+  <tr><td>TP53</td><td style="color:var(--muted)">ctrl_2</td><td style="text-align:right;color:var(--muted)">51</td></tr>
+  <tr><td>TP53</td><td style="color:var(--muted)">trt_1</td><td style="text-align:right;color:var(--muted)">89</td></tr>
+  <tr><td>TP53</td><td style="color:var(--muted)">trt_2</td><td style="text-align:right;color:var(--muted)">92</td></tr>
+</table>
+      <p class="smaller" style="color:#68D391;margin:0">One row = one observation. Ready for dplyr + ggplot2.</p>
+    </div>
+  </div>
+</div>
+```
+
+------------------------------------------------------------------------
+
+## pivot_longer() and pivot_wider() {background-color="#F7F9FC"}
+
+::::: columns
+::: {.column width="50%"}
+**`pivot_longer()` — wide → long**
+
+```{r}
+#| echo: true
+#| eval: false
+counts |>
+  pivot_longer(
+    cols      = ctrl_1:trt_2,
+    names_to  = "sample",
+    values_to = "count"
+  )
+```
+
+```{=html}
+<div class="card card-blue" style="border-left:4px solid var(--blue);padding:10px 16px;margin-top:8px">
+  <p style="color:#2B6CB0;margin:0;font-size:0.95em">Use <code>cols = starts_with("ctrl")</code> or <code>-gene</code> to select columns flexibly.</p>
+</div>
+```
+:::
+
+::: {.column width="50%"}
+**`pivot_wider()` — long → wide**
+
+```{r}
+#| echo: true
+#| eval: false
+long_counts |>
+  pivot_wider(
+    names_from  = sample,
+    values_from = count
+  )
+```
+
+```{=html}
+<div class="card card-purple" style="border-left:4px solid var(--purple);padding:10px 16px;margin-top:8px">
+  <p style="color:#553C9A;margin:0;font-size:0.95em">Useful for summary tables, matrices for export, or wide format a collaborator expects.</p>
+</div>
+```
+
+```{=html}
+<div class="card card-red" style="border-left:4px solid var(--red);padding:10px 16px;margin-top:8px">
+  <p style="color:#9B2335;margin:0;font-size:0.95em">Also useful: <strong><code>separate()</code></strong> splits one column into two — e.g. <code>"ctrl_1"</code> → <code>"ctrl"</code> and <code>"1"</code>.</p>
+</div>
+```
+:::
+:::::
+
+------------------------------------------------------------------------
+
+## Clean a Sample Sheet {background-color="#1A2744"}
+
+::: section-label
+Section 5 — Pair Coding Exercise
+:::
+
+**Data**
+
+```{r}
+#| eval: true
+#| echo: false
+library(tidyverse)
+library(DT)
+ 
+sample_sheet <- tribble(
+  ~SampleID, ~Treatment,  ~Replicate, ~RIN, ~Reads_M, ~Technician,  ~Platform,
+  "S01",     "control",   1,          8.2,  42.1,     "jsmith",     "Illumina",
+  "S02",     "control",   2,          7.9,  38.4,     "J. Smith",   "Illumina",
+  "S03",     "treated",   1,          8.5,  51.2,     "jsmith",     "Illumina",
+  "S04",     "treated",   2,          NA,   29.8,     "mlee",       "PacBio",
+  "S05",     "treated",   3,          7.1,  35.0,     "M. Lee",     "PacBio",
+  "S06",     "control",   3,          6.8,  44.7,     "mlee",       "Illumina"
+)
+ 
+datatable(
+  sample_sheet,
+  options = list(
+    dom        = "t",
+    pageLength = nrow(sample_sheet),
+    autoWidth  = FALSE,
+    scrollX = FALSE,
+    initComplete = JS(
+      "function(settings, json) {",
+      "  $(this.api().table().node()).closest('.dataTables_wrapper').css('font-size','0.72em');",
+      "}"
+    )
+  ),
+  class  = "compact stripe",
+  width  = "100%"
+)
+```
+ 
+<br>
+ 
+:::: {.columns}
+::: {.column width="60%"}
+
+```{=html}
+<div class="card card-dark" style="border-left:4px solid var(--green);padding:10px 16px">
+  <p style="color:var(--green);font-weight:600;margin:0 0 6px;font-size:0.95em">Your Tasks:</p>
+  <ul style="color:var(--muted);margin:0;padding-left:16px;font-size:0.9em;line-height:1.7">
+    <li>1. How many samples per treatment?</li>
+    <li>2. Filter to Illumina samples only — which has the lowest RIN?</li>
+    <li>3. Flag samples with <35M reads using `mutate()` + `case_when()`</li>
+  </ul>
+  <p style="color:#68D391;margin:0;font-size:0.95em">★ <strong>Stretch:</strong> Standardize Technician names using <code>str_extract()</code> from stringr</p>
+</div>
+```
+:::
+ 
+::: {.column width="40%"}
+```{=html}
+<div class="card card-dark" style="border-left:4px solid var(--red);padding:10px 16px">
+  <p style="color:var(--red);font-weight:600;margin:0 0 6px;font-size:0.95em">Known issues:</p>
+  <ul style="color:var(--muted);margin:0;padding-left:16px;font-size:0.9em;line-height:1.7">
+    <li>Technician names are inconsistent</li>
+    <li>One RIN value is missing (NA)</li>
+    <li>Platforms are mixed (Illumina / PacBio)</li>
+  </ul>
+</div>
+```
+:::
+
+::::
+ 
+
+------------------------------------------------------------------------
+
+## Data Wrangling Challenges {background-color="#F7F9FC"}
+
+Pick your spice level. Use **sample_sheet** (mild/medium) or **penguins** (hot).
+
+<br>
+
+:::::: columns
+::: {.column width="33%"}
+```{=html}
+<div class="card card-blue" style="border-left:4px solid var(--blue);padding:10px 16px">
+  <p style="color:#2B6CB0;font-weight:700;margin:0 0 6px;font-size:1.0em">Mild</p>
+  <ul style="color:var(--black);margin:0;padding-left:16px;font-size:0.9em;line-height:1.7">
+    <li>Standardise technician names: all `jsmith`/`J. Smith` → `"J. Smith"`, all `mlee`/`M. Lee` → `"M. Lee"`</li>
+    <li>Remove samples where RIN is NA</li>
+    <li>Add a column `passes_qc` that is `TRUE` when `Reads_M >= 35</li>
+    <li>Sort by `Reads_M` descending</li>
+  </ul>
+</div>
+```
+:::
+
+::: {.column width="33%"}
+```{=html}
+<div class="card card-green" style="border-left:4px solid var(--green);padding:10px 16px">
+  <p style="color:#276749;font-weight:700;margin:0 0 6px;font-size:1.0em">Medium</p>
+  <ul style="color:var(--black);margin:0;padding-left:16px;font-size:0.9em;line-height:1.7">
+    <li>Add a `cost` column: `Reads_M * 100 </li>
+    <li>Group by `Technician` and `Platform`. </li>
+    <li>Compute: number of samples, total reads, total cost. </li>
+  </ul>
+</div>
+```
+:::
+
+::: {.column width="34%"}
+```{=html}
+<div class="card card-orange" style="border-left:4px solid var(--orange);padding:10px 16px">
+  <p style="color:#744210;font-weight:700;margin:0 0 6px;font-size:1.0em">Hot</p>
+  <ul style="color:var(--black);margin:0;padding-left:16px;font-size:0.9em;line-height:1.7">
+    <li>Pivot the Medium summary wide so each Platform is its own column of `total_cost`.</li>
+    <li>Fill missing combinations with `0`</li>
+    <li>Add a column `over_budget = TRUE` when total Illumina cost exceeds $4,000. </li>
+    <li> Export your summary with <code>write_csv()</code></li>
+  </ul>
+</div>
+```
+:::
+::::::
+
+
+------------------------------------------------------------------------
+
+##  {background-color="#1A2744"}
+
+```{=html}
+<div class="slide-inner compact">
+  <h2 style="color:var(--light);font-size:2em;margin:0">Tidy Data Checklist</h2>
+  <p style="font-size:1.0em;color:#A0AEC0;margin:0">Before you hand off data or start analysis, ask yourself:</p>
+  <div class="flex-col" style="gap:6px;flex:1;justify-content:center">
+    <div class="check-row"><div class="check-dot" style="background:var(--green)">✓</div><p style="font-size:1.1em;color:var(--light);margin:0">Each variable has its own column</p></div>
+    <div class="check-row"><div class="check-dot" style="background:var(--green)">✓</div><p style="font-size:1.1em;color:var(--light);margin:0">Each observation has its own row</p></div>
+    <div class="check-row"><div class="check-dot" style="background:var(--green)">✓</div><p style="font-size:1.1em;color:var(--light);margin:0">Each observational unit forms its own table</p></div>
+    <div class="check-row"><div class="check-dot" style="background:var(--lblue)">✓</div><p style="font-size:1.1em;color:var(--light);margin:0">NAs are explicit — not blank cells, not "N/A" strings</p></div>
+    <div class="check-row"><div class="check-dot" style="background:var(--lblue)">✓</div><p style="font-size:1.1em;color:var(--light);margin:0">Factor levels are consistent — "treated" not "Treated", "treated ", "treat"</p></div>
+    <div class="check-row"><div class="check-dot" style="background:var(--orange)">✓</div><p style="font-size:1.1em;color:var(--light);margin:0">Column names are snake_case with no spaces, units, or special characters</p></div>
+  </div>
+</div>
+```
+
+------------------------------------------------------------------------
+
+##  {background-color="#F7F9FC"}
+
+```{=html}
+<div class="slide-inner light-bg compact">
+  <h2 style="font-size:2em;margin:0">Additional Resources</h2>
+  <div class="grid-2" style="flex:1;gap:8px">
+    <div class="card" style="background:#EBF4FF;border-left:5px solid var(--blue);padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:4px">
+      <a href="https://www.tidyverse.org" target="_blank" style="font-size:1.0em;font-weight:600;color:#2B6CB0;margin:0;text-decoration:none;display:block">Official docs</a>
+      <p class="smaller" style="color:#2D3748;margin:0;line-height:1.4"><strong>tidyverse.org</strong> — package docs, cheatsheets, and vignettes for every core package</p>
+    </div>
+    <div class="card" style="background:#F0FFF4;border-left:5px solid var(--green);padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:4px">
+      <a href="https://r4ds.hadley.nz" target="_blank" style="font-size:1.0em;font-weight:600;color:#276749;margin:0;text-decoration:none;display:block">R for Data Science</a>
+      <p class="smaller" style="color:#2D3748;margin:0;line-height:1.4"><strong>r4ds.hadley.nz</strong> — Hadley Wickham's free textbook, 2nd ed. with the native pipe</p>
+    </div>
+    <div class="card" style="background:#FFF5EB;border-left:5px solid var(--orange);padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:4px">
+      <a href="https://posit.co/resources/cheatsheets" target="_blank" style="font-size:1.0em;font-weight:600;color:#744210;margin:0;text-decoration:none;display:block">Posit Cheatsheets</a>
+      <p class="smaller" style="color:#2D3748;margin:0;line-height:1.4"><strong>posit.co/resources/cheatsheets</strong> — one-page PDF refs for dplyr, ggplot2, tidyr, stringr, purrr</p>
+    </div>
+    <div class="card" style="background:#FAF5FF;border-left:5px solid var(--purple);padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:4px">
+      <a href="https://github.com/bioinformatics-workshop/Intro-to-Tidyverse-2026" target="_blank" style="font-size:1.0em;font-weight:600;color:#553C9A;margin:0;text-decoration:none;display:block">Workshop materials</a>
+      <p class="smaller" style="color:#2D3748;margin:0;line-height:1.4"><strong>github.com/bioinformatics-workshop</strong> — QMD, exercises, and solutions</p>
+    </div>
+    <div class="card" style="background:#FFF5F5;border-left:5px solid var(--red);padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:4px">
+      <a href="https://github.com/rfordatascience/tidytuesday" target="_blank" style="font-size:1.0em;font-weight:600;color:#9B2335;margin:0;text-decoration:none;display:block">TidyTuesday</a>
+      <p class="smaller" style="color:#2D3748;margin:0;line-height:1.4"><strong>github.com/rfordatascience/tidytuesday</strong> — weekly social data project posting real datasets every Tuesday; practice tidyverse skills and share your visualizations with the R community</p>
+    </div>
+    <div class="card" style="background:#E6FFFA;border-left:5px solid #4FD1C5;padding:8px 12px;border-radius:12px;display:flex;flex-direction:column;gap:4px">
+      <a href="https://jhudatascience.org/tidyversecourse/" target="_blank" style="font-size:1.0em;font-weight:600;color:#234E52;margin:0;text-decoration:none;display:block">JHU Tidyverse Course</a>
+      <p class="smaller" style="color:#2D3748;margin:0;line-height:1.4"><strong>jhudatascience.org/tidyversecourse</strong> — free online course from Johns Hopkins covering tidyverse in depth, with case studies and exercises</p>
+    </div>
+  </div>
+  <div class="card card-dark" style="padding:8px 20px;display:flex;justify-content:space-between;align-items:center;flex:0 0 auto">
+    <p style="font-size:1.0em;color:var(--light);font-weight:600;margin:0">Questions? Reach the instructor:</p>
+    <p class="mono smaller" style="color:var(--lblue);margin:0">Brandon Le (lbrandon@ucr.edu)</p>
+  </div>
+</div>
+```
