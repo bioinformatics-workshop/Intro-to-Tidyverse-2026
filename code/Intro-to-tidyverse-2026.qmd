@@ -464,7 +464,7 @@ meta <- read_csv("metadata.csv")
 
 # Rename columns for easier typing
 meta <- meta |>
-  rename(depth_M = `Sequencing Depth (M Reads)`, platform = `Sequencing Platform`)
+  rename(depth_M = `Sequencing Depth (M)`, platform = `Sequencer_Platform`)
 
 glimpse(meta)  # check column names before writing the pipeline
 
@@ -535,7 +535,7 @@ clean
 ```
 
 <details>
-<summary>Core solution</summary>
+<summary>MILD solution</summary>
 
 ```r
 clean <- sample_sheet |>
@@ -576,7 +576,7 @@ clean |>
 ```
 
 <details>
-<summary>Stretch solution</summary>
+<summary>MEDIUM solution</summary>
 
 ```r
 clean |>
@@ -613,7 +613,7 @@ clean |>
 ```
 
 <details>
-<summary>Challenge solution</summary>
+<summary>HOT (SPICY) solution</summary>
 
 ```r
 clean |>
